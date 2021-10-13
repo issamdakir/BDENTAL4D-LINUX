@@ -11,66 +11,53 @@ from bpy.props import (
 )
 
 from .Operators.BDENTAL_4D_Utils import *
+def TresholdMinUpdateFunction(self, context):
+    BDENTAL_4D_Props = context.scene.BDENTAL_4D_Props
+    GpShader = BDENTAL_4D_Props.GroupNodeName
+    TresholdMin = BDENTAL_4D_Props.TresholdMin
 
-def text_body_update(self, context):
-    props = context.scene.ODC_modops_props
-    if context.object:
-        ob = context.object
-        if ob.type == "FONT":
-            mode = ob.mode
-            bpy.ops.object.mode_set(mode="OBJECT")
-            ob.data.body = props.text_body_prop
+    CtVolumeList = [
+        obj
+        for obj in bpy.context.scene.objects
+        if ("BD4D" in obj.name and "_CTVolume" in obj.name)
+    ]
+    if context.object in CtVolumeList:
+        Vol = context.object
+        Preffix = Vol.name[:8]
+        GpNode = bpy.data.node_groups.get(f"{Preffix}_{GpShader}")
+        Low_Treshold = GpNode.nodes["Low_Treshold"].outputs[0]
+        Low_Treshold.default_value = TresholdMin
 
-            # Check font options and apply them if toggled :
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.font.select_all()
+def TresholdMaxUpdateFunction(self, context):
+    BDENTAL_4D_Props = context.scene.BDENTAL_4D_Props
+    GpShader = BDENTAL_4D_Props.GroupNodeName
+    TresholdMax = BDENTAL_4D_Props.TresholdMax
 
-            dict_font_options = {
-                "BOLD": props.bold_toggle_prop,
-                "ITALIC": props.italic_toggle_prop,
-                "UNDERLINE": props.underline_toggle_prop,
-            }
-            for key, value in dict_font_options.items():
-                if value == True:
-                    bpy.ops.font.style_toggle(style=key)
+    CtVolumeList = [
+        obj
+        for obj in bpy.context.scene.objects
+        if ("BD4D" in obj.name and "_CTVolume" in obj.name)
+    ]
+    if context.object in CtVolumeList:
+        Vol = context.object
+        Preffix = Vol.name[:8]
+        GpNode = bpy.data.node_groups.get(f"{Preffix}_{GpShader}")
+        High_Treshold = GpNode.nodes["High_Treshold"].outputs[0]
+        High_Treshold.default_value = TresholdMax
+        
 
-            ob.name = ob.data.body
-            bpy.ops.object.mode_set(mode=mode)
-
-
-def text_bold_toggle(self, context):
-    if context.object:
-        ob = context.object
-        if ob.type == "FONT":
-            mode = ob.mode
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.font.select_all()
-            bpy.ops.font.style_toggle(style="BOLD")
-            bpy.ops.object.mode_set(mode=mode)
-
-
-def text_italic_toggle(self, context):
-    if context.object:
-        ob = context.object
-        if ob.type == "FONT":
-            mode = ob.mode
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.font.select_all()
-            bpy.ops.font.style_toggle(style="ITALIC")
-            bpy.ops.object.mode_set(mode=mode)
-
-
-def text_underline_toggle(self, context):
-    if context.object:
-        ob = context.object
-        if ob.type == "FONT":
-            mode = ob.mode
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.font.select_all()
-            bpy.ops.font.style_toggle(style="UNDERLINE")
-            bpy.ops.object.mode_set(mode=mode)
-
-
+def OrganizeSeriesEnumProp_callback(self, context):
+    EnumItems = [("EMPTY","EMPTY",str(""))]
+    BDENTAL_4D_Props = bpy.context.scene.BDENTAL_4D_Props
+    UserDcmDir = AbsPath(BDENTAL_4D_Props.UserDcmDir)
+    DcmOrganizeprop = BDENTAL_4D_Props.DcmOrganize
+    DcmOrganizeDict = eval(DcmOrganizeprop)
+    if UserDcmDir in DcmOrganizeDict.keys() :
+        OrganizeReport = DcmOrganizeDict[UserDcmDir]
+        EnumItems = []
+        for i, (serie, info) in enumerate(OrganizeReport.items()):
+            EnumItems.append((serie,serie,str("")))
+    return EnumItems
 class BDENTAL_4D_Props(bpy.types.PropertyGroup):
 
     #####################
@@ -78,15 +65,17 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     # CT_Scan props :
     #############################################################################################
     #####################
-
+    ProjectNameProp: StringProperty(
+        name="Project Name",
+        default='Unknowen',
+        description="Project Name",
+    )
     UserProjectDir: StringProperty(
-        name="Project Directory Path",
+        name="UserProjectDir",
         default="",
-        description="Project Directory Path",
+        description="User project directory",
         subtype="DIR_PATH",
     )
-
-    #####################
 
     UserDcmDir: StringProperty(
         name="DICOM Path",
@@ -102,6 +91,20 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
         subtype="FILE_PATH",
     )
 
+    Dicom_Series: EnumProperty(items = OrganizeSeriesEnumProp_callback, description="Dicom series")
+    OrganizeInfoProp: StringProperty(
+        name="OrganizeInfo",
+        default='{}',
+        description="Organize Information",
+    )
+    SlicesDir: StringProperty(
+        name="SlicesDir",
+        default="",
+        description="Temporary Slices directory",
+        subtype="DIR_PATH",
+    )
+
+
     #####################
 
     Data_Types = ["DICOM Series", "3D Image File", ""]
@@ -113,10 +116,15 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     DataType: EnumProperty(items=items, description="Data type", default="DICOM Series")
 
     #######################
+    DcmOrganize: StringProperty(
+        name="(str) Organize Dicom",
+        default="{'Deffault': None}",
+        description="Dicom series files list",
+    )
 
     DcmInfo: StringProperty(
         name="(str) DicomInfo",
-        default="{'Deffault': None}",
+        default="dict()",
         description="Dicom series files list",
     )
     #######################
@@ -135,11 +143,6 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     )
     #######################
 
-    NrrdHuPath: StringProperty(
-        name="NrrdHuPath",
-        default="",
-        description="Nrrd image3D file Path",
-    )
     Nrrd255Path: StringProperty(
         name="Nrrd255Path",
         default="",
@@ -147,14 +150,12 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     )
 
     #######################
-
     IcpVidDict: StringProperty(
-        name="IcpVidDict",
-        default="None",
-        description="ICP Vertices Pairs str(Dict)",
-    )
+            name="IcpVidDict",
+            default="None",
+            description="ICP Vertices Pairs str(Dict)",
+        )
     #######################
-
     Wmin: IntProperty()
     Wmax: IntProperty()
 
@@ -169,8 +170,8 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
 
     #######################
 
-    Treshold: IntProperty(
-        name="Treshold",
+    TresholdMin: IntProperty(
+        name="Treshold Min",
         description="Volume Treshold",
         default=600,
         min=-400,
@@ -178,7 +179,18 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
         soft_min=-400,
         soft_max=3000,
         step=1,
-        update=BDENTAL4D_Treshold_Prop_UpdateFunction,
+        update=TresholdMinUpdateFunction,
+    )
+    TresholdMax: IntProperty(
+        name="Treshold Max",
+        description="Volume Treshold",
+        default=3000,
+        min=-400,
+        max=3000,
+        soft_min=-400,
+        soft_max=3000,
+        step=1,
+        update=TresholdMaxUpdateFunction,
     )
     Progress_Bar: FloatProperty(
         name="Progress_Bar",
@@ -193,8 +205,8 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
         precision=1,
     )
     SoftTreshold: IntProperty(
-        name="SOFT TISSUE",
-        description="Soft Tissue Treshold",
+        name="SOFT TISSU",
+        description="Soft Tissu Treshold",
         default=-300,
         min=-400,
         max=3000,
@@ -229,7 +241,7 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     SoftSegmentColor: FloatVectorProperty(
         name="Soft Segmentation Color",
         description="Soft Color",
-        default=[0.8, 0.46, 0.4, 1.0],  # [0.63, 0.37, 0.30, 1.0]
+        default=[0.8, 0.5, 0.38, 1.000000],  # [0.8, 0.46, 0.4, 1.0],[0.63, 0.37, 0.30, 1.0]
         soft_min=0.0,
         soft_max=1.0,
         size=4,
@@ -282,7 +294,7 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
         default="Christian Brenes Teeth Library",
     )
 
-    ImplantLibList = ["BDENTAL4D_Implant_Library"]
+    ImplantLibList = ["NEOBIOTECH_IS_II_ACTIVE"]
     items = []
     for i in range(len(ImplantLibList)):
         item = (str(ImplantLibList[i]), str(ImplantLibList[i]), str(""), int(i))
@@ -291,7 +303,7 @@ class BDENTAL_4D_Props(bpy.types.PropertyGroup):
     ImplantLibrary: EnumProperty(
         items=items,
         description="Implant Library",
-        default="BDENTAL4D_Implant_Library",
+        default="NEOBIOTECH_IS_II_ACTIVE",
     )
     #######################
     SleeveDiameter: FloatProperty(
@@ -544,7 +556,6 @@ def unregister():
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-
     del bpy.types.Scene.BDENTAL_4D_Props
 
 

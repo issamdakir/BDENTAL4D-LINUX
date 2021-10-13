@@ -22,7 +22,7 @@
 # ##### END GPL LICENSE BLOCK #####
 ##############################################################################################
 bl_info = {
-    "name": "BDENTAL-4D-Win",  ###################Addon name
+    "name": "BDENTAL-4D-WIN",  ###################Addon name
     "author": "Essaid Issam Dakir DMD, Ilya Fomenco DMD",
     "version": (1, 0, 0),
     "blender": (2, 90, 1),  ################# Blender working version
@@ -70,7 +70,7 @@ REQ_DICT = {
 }
 ADDON_DIR = dirname(abspath(__file__))
 REQ_ZIP_DIR = join(ADDON_DIR, "Resources", "REQ_ZIP_DIR")
-BDENTAL_4D_Modules_DIR = join(os.path.expanduser("~"),"BDENTAL_4D_Modules")
+BDENTAL_4D_Modules_DIR = join(os.path.expanduser("~"),"BDENTAL_4D_Modules_291")
 
 if not sys.path[0] == BDENTAL_4D_Modules_DIR:
     sys.path.insert(0, BDENTAL_4D_Modules_DIR)
